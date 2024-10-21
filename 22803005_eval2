@@ -1,0 +1,49 @@
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+from pymongo import MongoClient
+
+url = "https://saras.cbse.gov.in/SARAS/AffiliatedList/ListOfSchdirReport"
+response = requests.get(url)
+soup = BeautifulSoup(response.content, 'html.parser')
+
+data = []
+table = soup.find('table') 
+
+for row in table.find_all('tr')[1:]: 
+    cols = row.find_all('td')
+    aff_no = cols[0].text.strip()
+    state_district = cols[1].text.strip()
+    status = cols[2].text.strip()
+    school_name = cols[3].text.strip()
+    head_name = cols[4].text.strip()
+    data.append([aff_no, state_district, status, school_name, head_name])
+
+df = pd.DataFrame(data, columns=['Aff No', 'State & District', 'Status', 'School Name', 'Head Name'])
+sch = df[df['Head Name'].str.contains('RAJESH KUMAR', case=False)]
+print("School with principal/head name RAJESH KUMAR:")
+print(sch['School Name'])
+
+schoolcount = df.shape[0]
+print("Total number of schools: ")
+print({schoolcount})
+
+
+client = MongoClient("mongodb://localhost:27017")
+db = client['school']
+collection = db['school_data']
+
+collection.insert_many(data)
+print("Data inserted into MongoDB")
+
+noofssl = collection.count_documents({"Status": "Senior Secondary"})
+noofsl = collection.count_documents({"Status": "Secondary"})
+
+print("Senior Secondary Schools: ")
+print( {noofssl})
+print("Secondary Schools: ")
+print({noofsl})
+
+principalofamityname = collection.find_one({"School Name": "AMITY INTERNATIONAL SCHOOL"}, {"Head Name": 1, "_id": 0})
+print(f"Principal of AMITY INTERNATIONAL SCHOOL: ")
+print({amity_principal['Head Name']})
